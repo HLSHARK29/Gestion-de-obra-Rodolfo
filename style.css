@@ -1,0 +1,15 @@
+.modal {
+    transition: opacity 0.25s ease;
+}
+.modal.opacity-100 {
+    opacity: 1;
+    pointer-events: auto;
+}
+body.modal-active {
+    overflow: hidden;
+}
+/* Estilo para que el grid se vea consistente */
+.grid-cols-12 {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+}

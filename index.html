@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Avance de Obra</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Script de SortableJS para drag & drop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased">
+
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center">
+                    <svg class="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    <span class="ml-2 text-xl font-bold text-gray-800">Control de Obra</span>
+                </div>
+                <span class="text-sm text-gray-500">Actualizado: 18 de Julio, 2026</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        <!-- KPIs FINANCIEROS Y OPERATIVOS -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Avance Físico</h3>
+                <div class="flex items-center mt-4">
+                    <div class="relative w-20 h-20">
+                        <svg class="w-full h-full -rotate-90">
+                            <circle cx="40" cy="40" r="32" class="text-gray-200" stroke="currentColor" stroke-width="8" fill="none"/>
+                            <circle id="svg-circle" cx="40" cy="40" r="32" class="text-blue-600" stroke="currentColor" stroke-width="8" fill="none" stroke-dasharray="0 200" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="ml-6">
+                        <p id="kpi-avance-big" class="text-4xl font-extrabold text-blue-600">0%</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo a Favor en Obra</h3>
+                <p id="kpi-saldo" class="text-4xl font-extrabold text-emerald-600 mt-2">$0</p>
+                <p class="text-sm text-gray-500 mt-1">Fondos disponibles para ejecutar</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Resumen de Caja</h3>
+                <div class="mt-3 text-sm space-y-1">
+                    <p class="flex justify-between"><span>Recibido:</span> <span id="val-recibido" class="font-bold">$0</span></p>
+                    <p class="flex justify-between"><span>Gastado:</span> <span id="val-gastado" class="font-bold text-red-600">-$0</span></p>
+                    <div class="border-t border-gray-100 mt-2 pt-2 flex justify-between">
+                        <span class="font-bold text-gray-700">En Caja:</span> 
+                        <span id="val-caja" class="font-bold text-emerald-600">$0</span>
+                    </div>
+                </div>
+                <a href="historial.html" class="block text-blue-600 text-sm font-bold mt-4 hover:underline">Ver detalle de movimientos →</a>
+            </div>
+        </div>
+
+        <!-- Estado de Partidas -->
+        <div class="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm mb-8">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-xl font-bold">Estado de Partidas</h2>
+                <button id="open-partida" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm shadow-sm transition">Agregar Avance</button>
+            </div>
+            <!-- CONTENEDOR PARA LAS PARTIDAS PADRE Y SUS SUBPARTIDAS COLAPSIBLES -->
+            <div id="contenedor-estado-partidas" class="space-y-4"></div>
+        </div>
+
+        <!-- Bitácora Visual -->
+        <div class="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+            <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6 gap-4">
+                <h2 class="text-xl font-bold">Bitácora Visual</h2>
+                <button id="open-evidencia" class="bg-gray-800 hover:bg-black text-white font-semibold px-5 py-2.5 rounded-lg text-sm shadow-sm transition">
+                    + Agregar Evidencia
+                </button>
+            </div>
+            <div id="filtros-categoria" class="flex flex-wrap gap-2 mb-8"></div>
+            <div id="galeria-avances" class="grid grid-cols-1 md:grid-cols-3 gap-6"></div>
+        </div>
+    </main>
+
+    <!-- Modal: Agregar Avance -->
+    <div id="modal-partida" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300 z-50">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-md shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 class="text-xl font-bold mb-6">Registrar Avance</h2>
+            <form id="form-partida" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Partida Padre</label>
+                    <div class="flex gap-2">
+                        <select id="partida-select" class="flex-grow p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"></select>
+                        <button type="button" id="btn-gestionar-partidas" class="bg-gray-200 px-4 rounded-lg hover:bg-gray-300 transition">⚙️</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Nombre de la Subpartida</label>
+                    <input type="text" id="nombre-subpartida" placeholder="Ej. Estructura general, Escalera..." class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Importancia / Peso (Subpartida)</label>
+                    <div id="selector-importancia" class="flex gap-2 text-2xl cursor-pointer">
+                        <!-- Se generarán palas dinámicamente -->
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Porcentaje de Avance</label>
+                    <input type="number" id="nuevo-avance" placeholder="0 - 100" min="0" max="100" class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-gray-700 mb-2">Notas o Comentarios (Opcional)</label>
+                    <textarea id="input-notas-avance" rows="2" placeholder="Detalles o aclaraciones de esta subpartida..." class="w-full p-3 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+                <div class="flex gap-4 mt-6">
+                    <button type="button" id="close-partida" class="flex-1 p-3 text-gray-500 font-bold hover:bg-gray-100 rounded-lg transition">Cancelar</button>
+                    <button type="submit" class="flex-1 bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Gestionar Partidas -->
+    <div id="modal-gestor-partidas" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center opacity-0 pointer-events-none transition-opacity z-[60]">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-sm shadow-xl mx-4">
+            <h3 class="text-lg font-bold mb-4">Administrar Partidas</h3>
+            <div id="lista-tags-partidas" class="flex flex-wrap gap-2 mb-6 min-h-[50px]"></div>
+            <div class="flex gap-2">
+                <input type="text" id="nueva-partida-input" placeholder="Nueva partida..." class="flex-grow p-2 border rounded-lg outline-none focus:ring-2 focus:ring-green-500">
+                <button id="btn-agregar-partida" class="bg-green-600 text-white px-4 rounded-lg font-bold hover:bg-green-700 transition">Agregar</button>
+            </div>
+            <button id="close-gestor" class="mt-6 text-sm text-gray-400 w-full hover:text-gray-600">Cerrar</button>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
