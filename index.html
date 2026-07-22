@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Avance de Obra</title>
+    <!-- Enlace al Manifiesto -->
+    <link rel="manifest" href="./manifest.json">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Script de SortableJS para drag & drop -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
@@ -135,5 +137,18 @@
     </div>
 
     <script type="module" src="app.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then((reg) => {
+              console.log('Service Worker registrado con éxito:', reg.scope);
+            })
+            .catch((err) => {
+              console.error('Error al registrar el Service Worker:', err);
+            });
+        });
+      }
+    </script>
 </body>
 </html>

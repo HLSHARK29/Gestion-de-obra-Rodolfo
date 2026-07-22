@@ -18,8 +18,8 @@
 
     <main class="max-w-7xl mx-auto p-6">
         
-        <!-- Resumen Financiero -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Resumen Financiero General -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center">
                 <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Ingresos</h3>
                 <p id="total-ingresos" class="text-2xl font-extrabold text-emerald-600 mt-2">$0</p>
@@ -29,17 +29,39 @@
                 <p id="total-gastos" class="text-2xl font-extrabold text-red-600 mt-2">$0</p>
             </div>
             <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm text-center">
-                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo Actual</h3>
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo Global Actual</h3>
                 <p id="total-saldo" class="text-2xl font-extrabold text-blue-600 mt-2">$0</p>
             </div>
         </div>
 
-        <!-- Acciones -->
-        <div class="flex justify-between items-center mb-8">
+        <!-- Desglose de Saldos por Entidad -->
+        <div class="mb-8">
+            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Saldos por Entidad</h3>
+            <div id="contenedor-saldos-entidades" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <!-- Se llenará dinámicamente con JS -->
+            </div>
+        </div>
+
+        <!-- Acciones y Filtros -->
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
             <h2 class="text-lg font-bold text-gray-700">Movimientos Registrados</h2>
-            <button id="open-movimiento" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm shadow-sm transition">
-                + Nuevo Movimiento
-            </button>
+            
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <!-- Filtro por Entidad -->
+                <select id="filtro-entidad" class="p-2.5 border rounded-lg bg-white text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="">Todas las entidades</option>
+                </select>
+
+                <!-- Filtro por Orden de Fecha -->
+                <select id="filtro-orden" class="p-2.5 border rounded-lg bg-white text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="asc">Más viejo al más nuevo</option>
+                    <option value="desc">Más nuevo al más viejo</option>
+                </select>
+
+                <button id="open-movimiento" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2.5 rounded-lg text-sm shadow-sm transition">
+                    + Nuevo Movimiento
+                </button>
+            </div>
         </div>
 
         <!-- Tabla de Movimientos -->
@@ -48,6 +70,7 @@
                 <thead class="bg-gray-50 border-b border-gray-100">
                     <tr>
                         <th class="p-4 text-xs font-bold text-gray-500 uppercase">Fecha</th>
+                        <th class="p-4 text-xs font-bold text-gray-500 uppercase">Entidad</th>
                         <th class="p-4 text-xs font-bold text-gray-500 uppercase">Concepto</th>
                         <th class="p-4 text-xs font-bold text-gray-500 uppercase">Tipo</th>
                         <th class="p-4 text-xs font-bold text-gray-500 uppercase text-right">Monto</th>
@@ -65,18 +88,70 @@
         <div class="bg-white p-8 rounded-2xl w-full max-w-md shadow-xl mx-4">
             <h2 class="text-xl font-bold mb-6">Registrar Movimiento</h2>
             <form id="form-movimiento" class="space-y-4">
-                <select id="tipo" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
-                    <option value="ingreso">Ingreso (+)</option>
-                    <option value="egreso">Egreso (-)</option>
-                </select>
-                <input type="number" id="monto" placeholder="Monto ($)" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
-                <input type="text" id="concepto" placeholder="Concepto (ej. Pago Cemento)" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
-                <input type="date" id="fecha" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Entidad</label>
+                    <div class="flex gap-2">
+                        <select id="entidad" class="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                            <option value="" disabled selected>Selecciona la Entidad</option>
+                        </select>
+                        <button type="button" id="open-entidades" class="p-3 border border-gray-300 rounded-lg hover:bg-gray-100 transition text-gray-600" title="Administrar Entidades">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Tipo de Movimiento</label>
+                    <select id="tipo" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="ingreso">Ingreso (+)</option>
+                        <option value="egreso">Egreso (-)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Monto</label>
+                    <input type="text" id="monto" inputmode="decimal" placeholder="$ 0.00" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-lg" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Concepto</label>
+                    <input type="text" id="concepto" placeholder="Concepto (ej. Pago Cemento)" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Fecha</label>
+                    <input type="date" id="fecha" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                </div>
                 <div class="flex gap-4 mt-6">
                     <button type="button" id="close-modal" class="flex-1 p-3 text-gray-500 font-bold hover:bg-gray-100 rounded-lg transition">Cancelar</button>
                     <button type="submit" class="flex-1 bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition">Guardar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal para Administrar Entidades -->
+    <div id="modal-entidades" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity z-50">
+        <div class="bg-white p-8 rounded-2xl w-full max-w-md shadow-xl mx-4">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Administrar Entidades</h2>
+                <button type="button" id="close-entidades" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <!-- Formulario para agregar / editar entidad -->
+            <form id="form-entidad-admin" class="flex gap-2 mb-6">
+                <input type="hidden" id="entidad-id-edicion">
+                <input type="text" id="nombre-nueva-entidad" placeholder="Nueva entidad (ej. P3)" class="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" required>
+                <button type="submit" id="btn-guardar-entidad" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-3 rounded-lg text-sm transition">Agregar</button>
+            </form>
+
+            <!-- Lista de Etiquetas de Entidades -->
+            <div class="border rounded-xl p-4 max-h-60 overflow-y-auto">
+                <div id="lista-etiquetas-entidades" class="flex flex-wrap gap-2">
+                    <!-- Las etiquetas se cargan dinámicamente aquí -->
+                </div>
+            </div>
         </div>
     </div>
 

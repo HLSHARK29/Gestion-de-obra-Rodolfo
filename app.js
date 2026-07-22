@@ -216,8 +216,8 @@ function escucharAvances() {
             agrupadoPorPadre[padreId].subpartidas.push({
                 docId: subpartidaId,
                 id: data.subpartida || subpartidaId,
-                porcentaje: data.porcentaje || 0,
-                peso: data.importancia || 1,
+                porcentaje: Number(data.porcentaje) || 0,
+                peso: Number(data.importancia) || 1,
                 notas: data.notas || '',
                 orden: data.orden ?? 999
             });
@@ -259,10 +259,10 @@ function escucharAvances() {
                 sumaPesosPadre += sub.peso;
             });
 
-            const avancePadre = sumaPesosPadre > 0 ? Math.round(sumaContribucionPadre / sumaPesosPadre) : 0;
+            const avancePadre = sumaPesosPadre > 0 ? (sumaContribucionPadre / sumaPesosPadre).toFixed(2) : "0.00";
             const pesoPropioPadre = grupo.pesoPadre;
 
-            sumaContribucionGeneral += (avancePadre * pesoPropioPadre);
+            sumaContribucionGeneral += (Number(avancePadre) * pesoPropioPadre);
             sumaPesosGenerales += pesoPropioPadre;
 
             let itemPadre = contenedor.querySelector(`[data-id="${padreId}"]`);
@@ -291,7 +291,7 @@ function escucharAvances() {
 
             if (itemPadre) {
                 const spanAvancePadre = itemPadre.querySelector('.avance-padre-val');
-                if (spanAvancePadre) spanAvancePadre.innerText = `${avancePadre}`;
+                if (spanAvancePadre) spanAvancePadre.innerText = `${avancePadre}%`;
                 
                 const subContainer = itemPadre.querySelector('.subpartidas-container');
                 if (subContainer) subContainer.innerHTML = htmlSubpartidas;
@@ -374,14 +374,14 @@ function escucharAvances() {
             }
         }
 
-        const avanceTotalGlobal = sumaPesosGenerales > 0 ? Math.round(sumaContribucionGeneral / sumaPesosGenerales) : 0;
+        const avanceTotalGlobal = sumaPesosGenerales > 0 ? (sumaContribucionGeneral / sumaPesosGenerales).toFixed(2) : "0.00";
         
         const kpiBig = document.getElementById('kpi-avance-big');
         if (kpiBig) kpiBig.innerText = `${avanceTotalGlobal}%`;
         
         const circle = document.getElementById('svg-circle');
         if (circle) {
-            circle.style.strokeDasharray = `${(200 * avanceTotalGlobal) / 100} 200`;
+            circle.style.strokeDasharray = `${(200 * Number(avanceTotalGlobal)) / 100} 200`;
         }
 
         // --- INICIALIZAR SORTABLEJS PARA LAS PARTIDAS PRINCIPALES ---
@@ -490,7 +490,6 @@ if (formPartida) {
         let ordenAsignado = 0;
 
         if (subpartidaEnEdicionId) {
-            // Si estamos editando, obtenemos el documento actual o el previo para conservar exactamente su orden
             const docActual = await getDoc(doc(db, "avances_obra", subpartidaEnEdicionId));
             if (docActual.exists() && docActual.data().orden !== undefined) {
                 ordenAsignado = docActual.data().orden;
@@ -499,12 +498,10 @@ if (formPartida) {
                 ordenAsignado = docAnteriorRenombrado.exists() ? (docAnteriorRenombrado.data().orden ?? 0) : 0;
             }
 
-            // Si cambió el nombre (por ende cambió el ID del documento), eliminamos el viejo registro
             if (subpartidaEnEdicionId !== nuevoSubpartidaId) {
                 await deleteDoc(doc(db, "avances_obra", subpartidaEnEdicionId));
             }
         } else {
-            // Si es un registro nuevo, se coloca al final de la lista del padre correspondiente
             const subSnap = await getDocs(collection(db, "avances_obra"));
             subSnap.forEach(d => { 
                 if (d.data().padreId === padreId) ordenAsignado++; 
