@@ -27,11 +27,107 @@ const db = getFirestore(app);
 
 // --- ESTADO ---
 let importanciaSeleccionada = 0;
-let sortableInstance = null; // Instancia para las partidas principales
-let sortableSubpartidasInstances = []; // Control de instancias para las subpartidas
-let renderizadoInicialCompleto = false; // Bandera para evitar parpadeos innecesarios
-let subpartidaEnEdicionId = null; // Control para saber si estamos editando una subpartida existente
-let ultimaPartidaPadreSeleccionada = ""; // Recuerda la última partida padre utilizada
+let sortableInstance = null; 
+let sortableSubpartidasInstances = []; 
+let renderizadoInicialCompleto = false; 
+let subpartidaEnEdicionId = null; 
+let ultimaPartidaPadreSeleccionada = ""; 
+
+// --- MODO VISUALIZACIÓN / PIN ---
+let modoEdicion = sessionStorage.getItem('modo_edicion_activo') === 'true';
+
+// Estilos globales controlados por clases en el body
+function asegurarEstilosCSSGlobales() {
+    if (document.getElementById('dinamic-modo-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'dinamic-modo-styles';
+    style.innerHTML = `
+        /* Por defecto (Solo lectura): ocultamos controles administrativos y de arrastre */
+        #open-partida, 
+        #btn-gestionar-partidas, 
+        #open-evidencia,
+        .drag-handle, 
+        .sub-drag-handle, 
+        .btn-accion-edicion,
+        .acciones-subpartida {
+            display: none !important;
+        }
+
+        /* Cuando el modo edición está activo, los mostramos */
+        body.modo-edicion-activo #open-partida,
+        body.modo-edicion-activo #btn-gestionar-partidas,
+        body.modo-edicion-activo #open-evidencia {
+            display: inline-flex !important;
+        }
+
+        body.modo-edicion-activo .drag-handle,
+        body.modo-edicion-activo .sub-drag-handle {
+            display: inline-block !important;
+        }
+
+        body.modo-edicion-activo .acciones-subpartida {
+            display: flex !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function aplicarModoVisualizacion() {
+    asegurarEstilosCSSGlobales();
+    
+    if (modoEdicion) {
+        document.body.classList.add('modo-edicion-activo');
+        document.body.classList.remove('modo-solo-lectura');
+    } else {
+        document.body.classList.remove('modo-edicion-activo');
+        document.body.classList.add('modo-solo-lectura');
+    }
+
+    document.querySelectorAll('button, a').forEach(el => {
+        const texto = el.textContent.toLowerCase();
+        if (texto.includes('agregar evidencia') || texto.includes('nueva evidencia')) {
+            el.style.display = modoEdicion ? '' : 'none';
+        }
+    });
+}
+
+// --- CONFIGURACIÓN DEL ACCESO POR PIN EN LA FECHA ---
+function configurarAccesoPinFecha() {
+    const elementoFecha = document.getElementById('fecha-actualizacion');
+
+    if (elementoFecha) {
+        elementoFecha.style.cursor = 'pointer';
+        
+        elementoFecha.addEventListener('click', (e) => {
+            e.preventDefault();
+
+            if (modoEdicion) {
+                const cerrar = confirm("¿Deseas cerrar el modo edición y volver a solo lectura?");
+                if (cerrar) {
+                    modoEdicion = false;
+                    sessionStorage.setItem('modo_edicion_activo', 'false');
+                    aplicarModoVisualizacion();
+                    cargarPartidas();
+                }
+                return;
+            }
+
+            const pinIngresado = prompt("Ingresa el PIN de acceso:");
+            
+            if (pinIngresado === "0000") {
+                modoEdicion = true;
+                sessionStorage.setItem('modo_edicion_activo', 'true');
+                aplicarModoVisualizacion();
+                cargarPartidas();
+                console.log("🔓 Modo Edición Activado mediante PIN");
+            } else if (pinIngresado !== null) {
+                alert("PIN incorrecto.");
+            }
+        });
+    } else {
+        console.warn("No se encontró el elemento con id 'fecha-actualizacion' en el HTML.");
+    }
+}
 
 // --- CATEGORÍAS DINÁMICAS ---
 const categorias = ["Todas", "Estructura", "Acabados", "Instalaciones", "Electricidad"];
@@ -71,11 +167,10 @@ function toggleModal(modal, show) {
 
 if (btnOpenPartida) btnOpenPartida.addEventListener('click', () => {
     if (formPartida) formPartida.reset();
-    subpartidaEnEdicionId = null; // Limpiamos el modo edición para que sea un registro nuevo
+    subpartidaEnEdicionId = null; 
     document.getElementById('nombre-subpartida').disabled = false;
     actualizarPalaUI(0);
     
-    // Restaurar la última partida padre recordada si existe
     if (ultimaPartidaPadreSeleccionada) {
         const selectPadre = document.getElementById('partida-select');
         if (selectPadre) selectPadre.value = ultimaPartidaPadreSeleccionada;
@@ -84,8 +179,10 @@ if (btnOpenPartida) btnOpenPartida.addEventListener('click', () => {
     toggleModal(modalPartida, true);
 });
 if (btnClosePartida) btnClosePartida.addEventListener('click', () => toggleModal(modalPartida, false));
-document.getElementById('btn-gestionar-partidas').addEventListener('click', () => toggleModal(modalGestor, true));
-document.getElementById('close-gestor').addEventListener('click', () => toggleModal(modalGestor, false));
+const btnGestionarPartidasEl = document.getElementById('btn-gestionar-partidas');
+if (btnGestionarPartidasEl) btnGestionarPartidasEl.addEventListener('click', () => toggleModal(modalGestor, true));
+const closeGestorEl = document.getElementById('close-gestor');
+if (closeGestorEl) closeGestorEl.addEventListener('click', () => toggleModal(modalGestor, false));
 
 // --- CERRAR MODALES CON TECLA ESC ---
 document.addEventListener('keydown', (e) => {
@@ -105,7 +202,7 @@ async function cargarPartidas() {
     const select = document.getElementById('partida-select');
     const contenedorTags = document.getElementById('lista-tags-partidas');
     
-    select.innerHTML = '<option value="">Seleccionar...</option>';
+    if (select) select.innerHTML = '<option value="">Seleccionar...</option>';
     if (contenedorTags) contenedorTags.innerHTML = '';
 
     let partidasArray = [];
@@ -118,10 +215,12 @@ async function cargarPartidas() {
     partidasArray.forEach((partidaObj, index) => {
         const partidaId = partidaObj.id;
         
-        const option = document.createElement('option');
-        option.value = partidaId;
-        option.innerText = partidaId;
-        select.appendChild(option);
+        if (select) {
+            const option = document.createElement('option');
+            option.value = partidaId;
+            option.innerText = partidaId;
+            select.appendChild(option);
+        }
 
         if (contenedorTags) {
             const tag = document.createElement('div');
@@ -135,58 +234,58 @@ async function cargarPartidas() {
                     <button type="button" class="text-red-500 hover:text-red-700 font-bold" title="Eliminar Concepto Padre">×</button>
                 </div>`;
             
-            // Botón Editar
-            tag.querySelectorAll('button')[0].onclick = async () => {
-                const nuevoNombre = prompt("Editar nombre del concepto padre:", partidaId);
-                if (nuevoNombre && nuevoNombre.trim() !== "" && nuevoNombre.trim() !== partidaId) {
-                    const nombreLimpio = nuevoNombre.trim();
-                    const ordenActual = partidaObj.orden ?? index;
-                    
-                    await setDoc(doc(db, "partidas_config", nombreLimpio), { creado: partidaObj.creado || new Date(), orden: ordenActual });
-                    await deleteDoc(doc(db, "partidas_config", partidaId));
+            const botonesEdicionPadre = tag.querySelectorAll('button');
+            if (botonesEdicionPadre.length >= 2) {
+                botonesEdicionPadre[0].onclick = async () => {
+                    const nuevoNombre = prompt("Editar nombre del concepto padre:", partidaId);
+                    if (nuevoNombre && nuevoNombre.trim() !== "" && nuevoNombre.trim() !== partidaId) {
+                        const nombreLimpio = nuevoNombre.trim();
+                        const ordenActual = partidaObj.orden ?? index;
+                        
+                        await setDoc(doc(db, "partidas_config", nombreLimpio), { creado: partidaObj.creado || new Date(), orden: ordenActual });
+                        await deleteDoc(doc(db, "partidas_config", partidaId));
 
-                    const avancesSnap = await getDocs(collection(db, "avances_obra"));
-                    avancesSnap.forEach(async (avDoc) => {
-                        const avData = avDoc.data();
-                        if (avData.padreId === partidaId) {
-                            const subName = avData.subpartida || avDoc.id.replace(partidaId + '_', '');
-                            const nuevoSubId = `${nombreLimpio}_${subName}`;
-                            await setDoc(doc(db, "avances_obra", nuevoSubId), {
-                                ...avData,
-                                padreId: nombreLimpio
-                            });
-                            await deleteDoc(doc(db, "avances_obra", avDoc.id));
-                        }
-                    });
-                    cargarPartidas();
-                }
-            };
+                        const avancesSnap = await getDocs(collection(db, "avances_obra"));
+                        avancesSnap.forEach(async (avDoc) => {
+                            const avData = avDoc.data();
+                            if (avData.padreId === partidaId) {
+                                const subName = avData.subpartida || avDoc.id.replace(partidaId + '_', '');
+                                const nuevoSubId = `${nombreLimpio}_${subName}`;
+                                await setDoc(doc(db, "avances_obra", nuevoSubId), {
+                                    ...avData,
+                                    padreId: nombreLimpio
+                                });
+                                await deleteDoc(doc(db, "avances_obra", avDoc.id));
+                            }
+                        });
+                        cargarPartidas();
+                    }
+                };
 
-            // Botón Eliminar
-            tag.querySelectorAll('button')[1].onclick = async () => {
-                if (confirm(`¿Eliminar la partida padre "${partidaId}" y todas sus subpartidas asociadas?`)) {
-                    await deleteDoc(doc(db, "partidas_config", partidaId));
-                    const avancesSnap = await getDocs(collection(db, "avances_obra"));
-                    avancesSnap.forEach(async (avDoc) => {
-                        if (avDoc.data().padreId === partidaId) {
-                            await deleteDoc(doc(db, "avances_obra", avDoc.id));
-                        }
-                    });
-                    cargarPartidas();
-                }
-            };
+                botonesEdicionPadre[1].onclick = async () => {
+                    if (confirm(`¿Eliminar la partida padre "${partidaId}" y todas sus subpartidas asociadas?`)) {
+                        await deleteDoc(doc(db, "partidas_config", partidaId));
+                        const avancesSnap = await getDocs(collection(db, "avances_obra"));
+                        avancesSnap.forEach(async (avDoc) => {
+                            if (avDoc.data().padreId === partidaId) {
+                                await deleteDoc(doc(db, "avances_obra", avDoc.id));
+                            }
+                        });
+                        cargarPartidas();
+                    }
+                };
+            }
 
             contenedorTags.appendChild(tag);
         }
     });
 
-    // Reasignar la última partida seleccionada tras recargar las opciones del select
-    if (ultimaPartidaPadreSeleccionada) {
+    if (ultimaPartidaPadreSeleccionada && select) {
         select.value = ultimaPartidaPadreSeleccionada;
     }
 }
 
-// --- LÓGICA: AVANCES PONDERADOS JERÁRQUICOS SIN PARPADEOS (RENDERIZADO INTELIGENTE) ---
+// --- LÓGICA: AVANCES PONDERADOS JERÁRQUICOS Y FECHA DINÁMICA ---
 function escucharAvances() {
     onSnapshot(collection(db, "avances_obra"), async (snapshot) => {
         const contenedor = document.getElementById('contenedor-estado-partidas');
@@ -199,11 +298,19 @@ function escucharAvances() {
         });
 
         const agrupadoPorPadre = {};
+        let fechaMasReciente = null;
 
         snapshot.forEach(docSnap => {
             const data = docSnap.data();
             const subpartidaId = docSnap.id;
             const padreId = data.padreId || subpartidaId; 
+
+            if (data.ultimaActualizacion) {
+                const fechaMod = new Date(data.ultimaActualizacion);
+                if (!fechaMasReciente || fechaMod > fechaMasReciente) {
+                    fechaMasReciente = fechaMod;
+                }
+            }
 
             if (!agrupadoPorPadre[padreId]) {
                 agrupadoPorPadre[padreId] = {
@@ -223,6 +330,8 @@ function escucharAvances() {
             });
         });
 
+        actualizarFechaUltimoCambio(fechaMasReciente);
+
         const padresOrdenados = Object.keys(agrupadoPorPadre).sort((a, b) => {
             return (agrupadoPorPadre[a].orden) - (agrupadoPorPadre[b].orden);
         });
@@ -230,7 +339,6 @@ function escucharAvances() {
         let sumaContribucionGeneral = 0;
         let sumaPesosGenerales = 0;
 
-        // Recuperar estados abiertos guardados en localStorage
         let abiertosGuardados = [];
         try {
             abiertosGuardados = JSON.parse(localStorage.getItem('accordion_abiertos') || '[]');
@@ -280,7 +388,7 @@ function escucharAvances() {
                         </div>
                         <div class="flex items-center gap-3">
                             <span class="font-bold text-gray-700">${sub.porcentaje}% <span class="text-xs text-gray-400 font-normal">(peso: ${sub.peso})</span></span>
-                            <div class="flex gap-1">
+                            <div class="flex gap-1 acciones-subpartida">
                                 <button onclick="window.editarSubpartida('${sub.docId}', '${padreId}', '${sub.id}', ${sub.porcentaje}, ${sub.peso}, '${sub.notas}')" class="text-blue-600 hover:text-blue-800 text-xs px-1" title="Editar Subpartida">✏️</button>
                                 <button onclick="window.eliminarSubpartida('${sub.docId}')" class="text-red-500 hover:text-red-700 text-xs px-1 font-bold" title="Eliminar Subpartida">×</button>
                             </div>
@@ -351,8 +459,7 @@ function escucharAvances() {
                 contenedor.appendChild(itemPadre);
             }
 
-            // --- INICIALIZAR SORTABLEJS PARA LAS SUBPARTIDAS DE ESTE PADRE ---
-            if (typeof Sortable !== 'undefined') {
+            if (typeof Sortable !== 'undefined' && modoEdicion) {
                 const subContainerEl = itemPadre.querySelector(`[data-padre-container="${padreId}"]`);
                 if (subContainerEl && !subContainerEl.sortableInitialized) {
                     const subSortable = Sortable.create(subContainerEl, {
@@ -384,8 +491,7 @@ function escucharAvances() {
             circle.style.strokeDasharray = `${(200 * Number(avanceTotalGlobal)) / 100} 200`;
         }
 
-        // --- INICIALIZAR SORTABLEJS PARA LAS PARTIDAS PRINCIPALES ---
-        if (typeof Sortable !== 'undefined' && contenedor) {
+        if (typeof Sortable !== 'undefined' && contenedor && modoEdicion) {
             if (!sortableInstance) {
                 sortableInstance = Sortable.create(contenedor, {
                     handle: '.drag-handle',
@@ -407,13 +513,25 @@ function escucharAvances() {
     });
 }
 
+function actualizarFechaUltimoCambio(fecha) {
+    const fechaObj = fecha || new Date();
+    const opciones = { day: 'numeric', month: 'long', year: 'numeric' };
+    const fechaFormateada = fechaObj.toLocaleDateString('es-ES', opciones);
+    const fechaCapitalizada = fechaFormateada.replace(/^\w/, c => c.toUpperCase());
+
+    const elementoFecha = document.getElementById('fecha-actualizacion');
+    if (elementoFecha) {
+        elementoFecha.innerText = `Actualizado: ${fechaCapitalizada}`;
+    }
+}
+
 window.editarSubpartida = async (docId, padreId, subNombre, porcentaje, peso, notas) => {
-    subpartidaEnEdicionId = docId; // Guardamos el ID actual que se está editando
-    ultimaPartidaPadreSeleccionada = padreId; // Guardamos la partida padre
+    subpartidaEnEdicionId = docId; 
+    ultimaPartidaPadreSeleccionada = padreId; 
     document.getElementById('partida-select').value = padreId;
     const inputSub = document.getElementById('nombre-subpartida');
     inputSub.value = subNombre;
-    inputSub.disabled = false; // Permitimos cambiar el nombre libremente
+    inputSub.disabled = false; 
     document.getElementById('nuevo-avance').value = porcentaje;
     actualizarPalaUI(peso);
     const inputNotas = document.getElementById('input-notas-avance');
@@ -438,24 +556,27 @@ function actualizarPalaUI(nivel) {
     });
 }
 
-document.getElementById('btn-agregar-partida').addEventListener('click', async () => {
-    const input = document.getElementById('nueva-partida-input');
-    const nombre = input.value.trim();
-    if (!nombre) return;
+const btnAgregarPartidaEl = document.getElementById('btn-agregar-partida');
+if (btnAgregarPartidaEl) {
+    btnAgregarPartidaEl.addEventListener('click', async () => {
+        const input = document.getElementById('nueva-partida-input');
+        const nombre = input.value.trim();
+        if (!nombre) return;
 
-    const snapshot = await getDocs(collection(db, "partidas_config"));
-    const existe = snapshot.docs.some(d => d.id.toLowerCase() === nombre.toLowerCase());
+        const snapshot = await getDocs(collection(db, "partidas_config"));
+        const existe = snapshot.docs.some(d => d.id.toLowerCase() === nombre.toLowerCase());
 
-    if (existe) {
-        alert(`Ya existe esta partida registrada: ${nombre.toUpperCase()}`);
-    } else {
-        const nuevoOrden = snapshot.size;
-        await setDoc(doc(db, "partidas_config", nombre), { creado: new Date(), orden: nuevoOrden });
-        input.value = '';
-        renderizadoInicialCompleto = false; 
-        cargarPartidas();
-    }
-});
+        if (existe) {
+            alert(`Ya existe esta partida registrada: ${nombre.toUpperCase()}`);
+        } else {
+            const nuevoOrden = snapshot.size;
+            await setDoc(doc(db, "partidas_config", nombre), { creado: new Date(), orden: nuevoOrden });
+            input.value = '';
+            renderizadoInicialCompleto = false; 
+            cargarPartidas();
+        }
+    });
+}
 
 const contenedorPalas = document.getElementById('selector-importancia');
 if (contenedorPalas) {
@@ -481,12 +602,8 @@ if (formPartida) {
             return alert("Selecciona la partida padre, escribe el nombre de la subpartida e indica su importancia.");
         }
 
-        // Recordar la partida padre actual para la siguiente inserción
         ultimaPartidaPadreSeleccionada = padreId;
-
         const nuevoSubpartidaId = `${padreId}_${nombreSub}`;
-
-        // Determinar el orden que le corresponde de manera robusta
         let ordenAsignado = 0;
 
         if (subpartidaEnEdicionId) {
@@ -520,7 +637,6 @@ if (formPartida) {
         
         alert("Subpartida y avance guardados correctamente");
         
-        // Limpiamos parcialmente el formulario para seguir agregando de forma fluida sin cerrar el modal
         document.getElementById('nombre-subpartida').value = '';
         document.getElementById('nombre-subpartida').disabled = false;
         document.getElementById('nuevo-avance').value = '';
@@ -528,7 +644,6 @@ if (formPartida) {
         actualizarPalaUI(0);
         subpartidaEnEdicionId = null;
         
-        // Mantenemos seleccionada la última partida padre recordada
         document.getElementById('partida-select').value = ultimaPartidaPadreSeleccionada;
     });
 }
@@ -559,6 +674,8 @@ function escucharMovimientos() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    aplicarModoVisualizacion();
+    configurarAccesoPinFecha();
     escucharMovimientos();
     escucharAvances();
     renderizarFiltros();
